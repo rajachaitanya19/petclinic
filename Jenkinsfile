@@ -1,67 +1,39 @@
 pipeline {
-         agent {
-                docker {
-                    image 'maven:3-alpine'
-                    args '-v $HOME/.m2:/root/.m2'
-                }
-            }
-         tools {
-                 //docker 'dockerlatest'
-                   maven 'M3'
-         }
-        
-        parameters {
-                string (
-                        defaultValue: '*',
-                        description: '',
-                        name : 'BRANCH_PATTERN')
-                booleanParam (
-                        defaultValue: false,
-                        description: '',
-                        name : 'PUBLISH')
-                }
+	agent any
 	stages {
-    		stage('Build') 	{
+		stage('git url') {
 			steps {
-        			sh 'mvn package'
+				git 'https://github.com/rajachaitanya19/petclinic.git'
 			}
-    		}
-    		stage('parallel stages') {
-    		        parallel {
-    			        stage('Archival') {
-				        steps {
-        				        archiveArtifacts 'target/*.war'
-				        }
-    			        }
-		
-			        stage('Test cases') {
-				        steps {
-        				        junit 'target/surefire-reports/*.xml'
-				        }
-    		                }
-
-		        } 
-                }
-
-  	}
-	post {
-		always {
-			notify('started')
 		}
-		failure {
-			notify('err')
+		stage('mvn command') {
+			steps {
+				sh label: '', script: 'mvn clean package'
+			}
+		}	
+		stage('archive artifacts') {
+			steps {
+				archiveArtifacts 'target/petclinic.war'
+			}
 		}
-		success {
-			notify('success')
+		stage('nexus') {
+            steps {
+				nexusArtifactUploader artifacts: [[artifactId: 'spring-petclinic', classifier: '', file: 'target/petclinic.war', type: 'war']], credentialsId: 'nexus', groupId: 'org.springframework.samples', nexusUrl: '13.126.227.171:8081/nexus', nexusVersion: 'nexus2', protocol: 'http', repository: 'releases', version: "4.2.${env.BUILD_NUMBER}"
+			}
 		}
 	}
+	post { 
+        always {
+			echo 'I will always say Hello again!'
+		}
+		success {		
+            notify ('success')
+		}
+		failure {
+			notify ('fail')
+		}
+    }
 }
-
-def notify(status){
-    emailext (
-    to: "devops.kphb@gmail.com",
-    subject: "${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-    body: """<p>${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
-        <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME}  [${env.BUILD_NUMBER}]</a></p>""",
-    )
- }
+def notify(status) {
+	emailext body: "${status}", subject: "${status}", to: 'rajachaitanya19@gmail.com'
+}
