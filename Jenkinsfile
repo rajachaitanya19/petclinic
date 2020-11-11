@@ -8,6 +8,7 @@ pipeline {
 		}
 		stage('mvn command') {
 			steps {
+			// sample test 
 				sh label: '', script: 'mvn clean package'
 			}
 		}	
